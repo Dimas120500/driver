@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MBG Personal App</title>
+
+<style>
+body{
+    font-family:'Segoe UI',sans-serif;
+    background:#eef2f7;
+    padding:20px;
+}
+.container{
+    max-width:700px;
+    margin:auto;
+}
+h2{text-align:center;}
+input{
+    width:100%;
+    padding:8px;
+    margin:5px 0;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+button{
+    border:none;
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    margin-top:5px;
+}
+.save-btn{background:#4caf50;color:white;width:100%;}
+.select-btn{background:#2563eb;color:white;width:100%;}
+.reset-btn{background:#ef4444;color:white;width:100%;}
+.export-btn{background:#9333ea;color:white;width:100%;}
+
+.card{
+    background:white;
+    padding:15px;
+    border-radius:15px;
+    margin-top:15px;
+    box-shadow:0 5px 15px rgba(0,0,0,0.08);
+    border-left:5px solid #3b82f6;
+    animation:fadeUp .3s ease;
+}
+@keyframes fadeUp{
+    from{opacity:0;transform:translateY(15px);}
+    to{opacity:1;transform:translateY(0);}
+}
+.flex{
+    display:flex;
+    gap:10px;
+}
+.section{
+    flex:1;
+    background:#f4f6fa;
+    padding:10px;
+    border-radius:10px;
+    font-size:13px;
+}
+.big{font-size:20px;font-weight:bold;}
+.edit{background:#90cdf4;}
+.delete{background:#f87171;color:white;}
+
+.total-box{
+    background:#1f2937;
+    color:white;
+    padding:15px;
+    border-radius:15px;
+    margin-top:20px;
+}
+
+.toast{
+    position:fixed;
+    top:20px;
+    right:20px;
+    padding:12px 18px;
+    border-radius:10px;
+    color:white;
+    opacity:0;
+    transform:translateY(-20px);
+    transition:.3s;
+}
+.toast.show{opacity:1;transform:translateY(0);}
+.success{background:#4caf50;}
+.error{background:#ef4444;}
+.info{background:#2563eb;}
+
+.footer{
+    text-align:center;
+    margin-top:30px;
+    font-size:12px;
+    color:gray;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h2>KALKULATOR DRIVER MBG</h2>
+
+<input type="text" id="sekolah" placeholder="Nama Sekolah">
+<input type="number" id="besar" placeholder="Porsi Besar">
+<input type="number" id="kecil" placeholder="Porsi Kecil">
+
+<button class="save-btn" onclick="tambahData()">Simpan Data</button>
+<button class="select-btn" onclick="hitungTerpilih()">Hitung Yang Dipilih</button>
+<button class="reset-btn" onclick="hapusSemua()">Hapus Semua Data</button>
+<button class="export-btn" onclick="exportData()">Download Data</button>
+
+<div id="listData"></div>
+<div class="total-box" id="totalBox"></div>
+<div class="total-box" id="selectedBox"></div>
+
+<div class="footer">
+Developed by dimsz 🧠
+</div>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const isi_per_ikat = 5;
+let data = JSON.parse(localStorage.getItem("mbgData")) || [];
+let editIndex = -1;
+
+function toast(msg,type){
+    let t=document.getElementById("toast");
+    t.className="toast show "+type;
+    t.innerText=msg;
+    setTimeout(()=>t.className="toast",2000);
+}
+
+function detail(n){
+    return {ikat:Math.floor(n/isi_per_ikat),sisa:n%isi_per_ikat};
+}
+
+function tambahData(){
+    let sekolah=document.getElementById("sekolah").value.trim();
+    let besar=parseInt(document.getElementById("besar").value)||0;
+    let kecil=parseInt(document.getElementById("kecil").value)||0;
+
+    if(!sekolah) return toast("Nama sekolah wajib diisi!","error");
+
+    if(editIndex>=0){
+        data[editIndex]={sekolah,besar,kecil};
+        toast("Data berhasil di edit","info");
+        editIndex=-1;
+    }else{
+        data.push({sekolah,besar,kecil});
+        toast("Data berhasil disimpan","success");
+    }
+
+    localStorage.setItem("mbgData",JSON.stringify(data));
+    resetInput();
+    tampilkan();
+}
+
+function tampilkan(){
+    let list=document.getElementById("listData");
+    list.innerHTML="";
+    let totalB=0,totalK=0;
+
+    data.forEach((item,i)=>{
+        totalB+=item.besar;
+        totalK+=item.kecil;
+        let dB=detail(item.besar);
+        let dK=detail(item.kecil);
+
+        list.innerHTML+=`
+        <div class="card">
+            <input type="checkbox" class="pilih" data-index="${i}">
+            <b>${item.sekolah}</b>
+
+            <div class="flex">
+                <div class="section">
+                    <b>Besar</b>
+                    <div class="big">${item.besar}</div>
+                    ${dB.ikat} ikat | ${dB.sisa} ompreng
+                </div>
+                <div class="section">
+                    <b>Kecil</b>
+                    <div class="big">${item.kecil}</div>
+                    ${dK.ikat} ikat | ${dK.sisa} ompreng
+                </div>
+            </div>
+
+            <br>
+            <button class="edit" onclick="editData(${i})">Edit</button>
+            <button class="delete" onclick="hapusData(${i})">Hapus</button>
+        </div>`;
+    });
+
+    let dTB=detail(totalB);
+    let dTK=detail(totalK);
+
+    document.getElementById("totalBox").innerHTML=`
+    <h3>TOTAL SEMUA SEKOLAH</h3>
+    Besar: ${totalB} (${dTB.ikat} ikat | ${dTB.sisa} ompreng)<br>
+    Kecil: ${totalK} (${dTK.ikat} ikat | ${dTK.sisa} ompreng)
+    `;
+}
+
+function hitungTerpilih(){
+    let check=document.querySelectorAll(".pilih:checked");
+    if(check.length==0) return toast("Tidak ada sekolah dipilih","error");
+
+    let totalB=0,totalK=0;
+
+    check.forEach(c=>{
+        let i=c.dataset.index;
+        totalB+=data[i].besar;
+        totalK+=data[i].kecil;
+    });
+
+    let dB=detail(totalB);
+    let dK=detail(totalK);
+
+    document.getElementById("selectedBox").innerHTML=`
+    <h3>TOTAL SEKOLAH TERPILIH</h3>
+    Besar: ${totalB} (${dB.ikat} ikat | ${dB.sisa} ompreng)<br>
+    Kecil: ${totalK} (${dK.ikat} ikat | ${dK.sisa} ompreng)
+    `;
+
+    toast("Total sekolah terpilih dihitung","success");
+}
+
+function hapusData(i){
+    if(confirm("Yakin mau hapus sekolah ini?")){
+        data.splice(i,1);
+        localStorage.setItem("mbgData",JSON.stringify(data));
+        tampilkan();
+        toast("Data berhasil dihapus","error");
+    }
+}
+
+function hapusSemua(){
+    if(confirm("Yakin mau hapus SEMUA data?")){
+        data=[];
+        localStorage.removeItem("mbgData");
+        tampilkan();
+        document.getElementById("selectedBox").innerHTML="";
+        toast("Semua data dihapus","error");
+    }
+}
+
+function editData(i){
+    let item=data[i];
+    document.getElementById("sekolah").value=item.sekolah;
+    document.getElementById("besar").value=item.besar;
+    document.getElementById("kecil").value=item.kecil;
+    editIndex=i;
+    toast("Mode edit aktif","info");
+}
+
+function exportData(){
+    if(data.length===0) return toast("Tidak ada data untuk di export","error");
+
+    let teks="LAPORAN KALKULATOR OMPRENG MBG\n\n";
+    let totalB=0,totalK=0;
+
+    data.forEach(item=>{
+        let dB=detail(item.besar);
+        let dK=detail(item.kecil);
+        totalB+=item.besar;
+        totalK+=item.kecil;
+
+        teks+=`Sekolah: ${item.sekolah}\n`;
+        teks+=`  Besar: ${item.besar} (${dB.ikat} ikat | ${dB.sisa} ompreng)\n`;
+        teks+=`  Kecil: ${item.kecil} (${dK.ikat} ikat | ${dK.sisa} ompreng)\n`;
+        teks+="----------------------------------\n";
+    });
+
+    let dTB=detail(totalB);
+    let dTK=detail(totalK);
+
+    teks+=`\nTOTAL SEMUA SEKOLAH\n`;
+    teks+=`Besar: ${totalB} (${dTB.ikat} ikat | ${dTB.sisa} ompreng)\n`;
+    teks+=`Kecil: ${totalK} (${dTK.ikat} ikat | ${dTK.sisa} ompreng)\n`;
+
+    let blob=new Blob([teks],{type:"text/plain"});
+    let link=document.createElement("a");
+    link.href=URL.createObjectURL(blob);
+    link.download="laporan_mbg.txt";
+    link.click();
+
+    toast("Data berhasil di download","success");
+}
+
+function resetInput(){
+    document.getElementById("sekolah").value="";
+    document.getElementById("besar").value="";
+    document.getElementById("kecil").value="";
+}
+
+tampilkan();
+</script>
+
+</body>
+</html> 
